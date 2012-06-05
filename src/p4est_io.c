@@ -23,8 +23,10 @@
 */
 
 #ifndef P4_TO_P8
+#include <p4est_algorithms.h>
 #include <p4est_io.h>
 #else
+#include <p8est_algorithms.h>
 #include <p8est_io.h>
 #endif
 
@@ -76,3 +78,76 @@ p4est_deflate_quadrants (p4est_t * p4est, sc_array_t **data)
   }
   return qarr;
 }
+
+#ifndef P4_TO_P8
+
+p4est_t           *
+p4est_inflate (MPI_Comm mpicomm, p4est_connectivity_t *connectivity,
+               const p4est_gloidx_t *global_first_quadrant,
+               const p4est_gloidx_t *pertree,
+               sc_array_t *quadrants, sc_array_t *data, void *user_pointer)
+{
+  const p4est_gloidx_t *gfq;
+  int                 mpiret;
+  int                 num_procs, rank;
+  p4est_topidx_t      num_trees;
+  p4est_t            *p4est;
+#ifdef P4EST_DEBUG
+  int                 p;
+#endif
+ 
+  P4EST_GLOBAL_PRODUCTION
+    ("Into " P4EST_STRING "_inflate with min quadrants\n");
+
+  P4EST_ASSERT (p4est_connectivity_is_valid (connectivity));
+
+  /* retrieve MPI information */
+  mpiret = MPI_Comm_size (mpicomm, &num_procs);
+  SC_CHECK_MPI (mpiret);
+  mpiret = MPI_Comm_rank (mpicomm, &rank);
+  SC_CHECK_MPI (mpiret);
+
+  /* assign some data members */
+  p4est = P4EST_ALLOC_ZERO (p4est_t, 1);
+  p4est->mpicomm = mpicomm;
+  p4est->mpisize = num_procs;
+  p4est->mpirank = rank;
+  p4est->data_size = data == NULL ? 0 : data->elem_size;
+  p4est->user_pointer = user_pointer;
+  p4est->connectivity = connectivity;
+  num_trees = connectivity->num_trees;
+
+  /* create global first quadrant offsets */
+  gfq = p4est->global_first_quadrant =
+    P4EST_ALLOC (p4est_gloidx_t, num_procs + 1);
+  memcpy (p4est->global_first_quadrant, global_first_quadrant,
+          (num_procs + 1) * sizeof (p4est_gloidx_t));
+#ifdef P4EST_DEBUG
+  for (p = 0; p < num_procs; ++p) {
+    P4EST_ASSERT (gfq[p] <= gfq[p + 1]);
+  }
+#endif
+  p4est->global_num_quadrants = gfq[num_procs];
+  p4est->local_num_quadrants = (p4est_locidx_t) (gfq[rank + 1] - gfq[rank]);
+
+  /* allocate memory pools */
+  if (p4est->data_size > 0) {
+    p4est->user_data_pool = sc_mempool_new (p4est->data_size);
+  }
+  else {
+    p4est->user_data_pool = NULL;
+  }
+  p4est->quadrant_pool = sc_mempool_new (sizeof (p4est_quadrant_t));
+
+
+  /* print more statistics */
+  P4EST_VERBOSEF ("total local quadrants %lld\n",
+                  (long long) p4est->local_num_quadrants);
+
+  P4EST_ASSERT (p4est_is_valid (p4est));
+  P4EST_GLOBAL_PRODUCTION ("Done " P4EST_STRING "_inflate\n");
+
+  return p4est;
+}
+
+#endif /* !P4_TO_P8 */

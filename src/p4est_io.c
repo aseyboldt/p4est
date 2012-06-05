@@ -90,14 +90,14 @@ p4est_inflate (MPI_Comm mpicomm, p4est_connectivity_t *connectivity,
   const p4est_gloidx_t *gfq;
   int                 mpiret;
   int                 num_procs, rank;
-  p4est_topidx_t      num_trees;
+  p4est_topidx_t      num_trees, jt;
   p4est_t            *p4est;
+  p4est_tree_t       *tree;
 #ifdef P4EST_DEBUG
   int                 p;
 #endif
  
-  P4EST_GLOBAL_PRODUCTION
-    ("Into " P4EST_STRING "_inflate with min quadrants\n");
+  P4EST_GLOBAL_PRODUCTION ("Into " P4EST_STRING "_inflate\n");
 
   P4EST_ASSERT (p4est_connectivity_is_valid (connectivity));
 
@@ -123,6 +123,7 @@ p4est_inflate (MPI_Comm mpicomm, p4est_connectivity_t *connectivity,
   memcpy (p4est->global_first_quadrant, global_first_quadrant,
           (num_procs + 1) * sizeof (p4est_gloidx_t));
 #ifdef P4EST_DEBUG
+  P4EST_ASSERT (gfq[0] >= 0);
   for (p = 0; p < num_procs; ++p) {
     P4EST_ASSERT (gfq[p] <= gfq[p + 1]);
   }
@@ -139,6 +140,15 @@ p4est_inflate (MPI_Comm mpicomm, p4est_connectivity_t *connectivity,
   }
   p4est->quadrant_pool = sc_mempool_new (sizeof (p4est_quadrant_t));
 
+  /* populate trees */
+  p4est->trees = sc_array_new_size (sizeof (p4est_tree_t), num_trees);
+  for (jt = 0; jt < num_trees; ++jt) {
+    tree = p4est_tree_array_index (p4est->trees, jt);
+    sc_array_init (&tree->quadrants, sizeof (p4est_quadrant_t));
+    P4EST_QUADRANT_INIT (&tree->first_desc);
+    P4EST_QUADRANT_INIT (&tree->last_desc);
+    tree->quadrants_offset = 0;
+  }
 
   /* print more statistics */
   P4EST_VERBOSEF ("total local quadrants %lld\n",

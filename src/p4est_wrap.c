@@ -78,7 +78,7 @@ p4est_wrap_finalize (void)
 }
 
 p4est_wrap_t       *
-p4est_wrap_new (int initial_level)
+p4est_wrap_new (MPI_Comm mpicomm, p4est_connectivity_t *conn, int initial_level)
 {
   p4est_wrap_t       *pp;
 
@@ -87,12 +87,8 @@ p4est_wrap_new (int initial_level)
   pp->p4est_half = P4EST_HALF;
   pp->p4est_faces = P4EST_FACES;
   pp->p4est_children = P4EST_CHILDREN;
-#ifndef P4_TO_P8
-  pp->conn = p4est_connectivity_new_unitsquare ();
-#else
-  pp->conn = p8est_connectivity_new_unitcube ();
-#endif
-  pp->p4est = p4est_new_ext (MPI_COMM_WORLD, pp->conn,
+  pp->conn = conn;
+  pp->p4est = p4est_new_ext (mpicomm, pp->conn,
                              0, initial_level, 1, 0, init_callback, NULL);
   pp->flags = P4EST_ALLOC_ZERO (int8_t, pp->p4est->local_num_quadrants);
 

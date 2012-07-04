@@ -62,7 +62,7 @@ void                p8est_wrap_finalize (void);
  * Passes MPI_COMM_WORLD to p4est.  We should wrap the MPI_Comm and pass it.
  * The pp->flags array is initialized to zeros.
  */
-p8est_wrap_t       *p8est_wrap_new (int initial_level);
+p8est_wrap_t       *p8est_wrap_new (MPI_Comm mpicomm, p4est_connectivity_t *conn, int initial_level);
 void                p8est_wrap_destroy (p8est_wrap_t * pp);
 
 /** Call p8est_refine, coarsen, balance to update pp->p4est.
